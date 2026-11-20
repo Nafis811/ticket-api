@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tickets
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tickets"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/tickets
+      PORT: "3000"
+      WEBHOOK_SECRET: dev-webhook-secret
+      ORDER_TTL_SECONDS: "900"
+      EXPIRY_INTERVAL_MS: "30000"
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

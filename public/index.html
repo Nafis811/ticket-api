@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket API - Sistem Penjualan Tiket Kuota Terbatas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="bg-indigo-700 p-2.5 rounded-xl shadow-inner text-amber-400">
+          <i class="fa-solid fa-ticket-simple text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">Ticket API Showcase</h1>
+          <p class="text-xs text-indigo-200">Event Ticketing System • High Concurrency • Idempotent Webhook</p>
+        </div>
+      </div>
+
+      <!-- Identity Switcher -->
+      <div class="flex items-center bg-indigo-950/60 p-1.5 rounded-xl border border-indigo-800 text-sm">
+        <span class="text-xs text-indigo-300 px-2 font-medium"><i class="fa-solid fa-user mr-1.5"></i>Pembeli:</span>
+        <select id="userSelect" onchange="changeUser()" class="bg-indigo-800 text-white text-xs font-semibold py-1.5 px-3 rounded-lg border-0 focus:ring-2 focus:ring-amber-400 cursor-pointer">
+          <option value="budi">budi</option>
+          <option value="siti">siti</option>
+          <option value="andi">andi</option>
+          <option value="custom">+ User Lain...</option>
+        </select>
+        <button onclick="refreshData()" class="ml-2 bg-indigo-700 hover:bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg text-xs transition" title="Refresh Data">
+          <i class="fa-solid fa-rotate"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- Hero / Metrics Alert -->
+    <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl font-bold">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Proteksi Kuota</div>
+          <div class="text-sm font-semibold text-slate-800">Locking & ACID Tx</div>
+        </div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl font-bold">
+          <i class="fa-solid fa-stopwatch"></i>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Batas Waktu Bayar</div>
+          <div class="text-sm font-semibold text-slate-800">15 Menit Kuota Tertahan</div>
+        </div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl font-bold">
+          <i class="fa-solid fa-user-lock"></i>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Batas Pembelian</div>
+          <div class="text-sm font-semibold text-slate-800">Maks 4 Tiket/User</div>
+        </div>
+      </div>
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl font-bold">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500 font-medium">Webhook Aman</div>
+          <div class="text-sm font-semibold text-slate-800">HMAC-SHA256 & Idempoten</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Content Tabs -->
+    <div class="flex border-b border-slate-200 gap-2 font-medium text-sm">
+      <button onclick="switchTab('tab-events')" id="btn-tab-events" class="tab-btn pb-3 px-4 border-b-2 border-indigo-600 text-indigo-600 font-semibold transition flex items-center gap-2">
+        <i class="fa-solid fa-calendar-star"></i> Event & Pemesanan
+      </button>
+      <button onclick="switchTab('tab-orders')" id="btn-tab-orders" class="tab-btn pb-3 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2">
+        <i class="fa-solid fa-receipt"></i> Pesanan Saya & Tiket
+        <span id="orderCountBadge" class="hidden bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+      </button>
+      <button onclick="switchTab('tab-loadtest')" id="btn-tab-loadtest" class="tab-btn pb-3 px-4 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2">
+        <i class="fa-solid fa-bolt"></i> Uji 200 Rebutan Kuota
+      </button>
+    </div>
+
+    <!-- TAB 1: Events & Booking -->
+    <section id="tab-events" class="space-y-6">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Event Yang Sedang Buka</h2>
+          <p class="text-xs text-slate-500">Pilih tipe tiket dan tentukan kuota pesanan (maks 4 per pembeli)</p>
+        </div>
+        <button onclick="showCreateEventModal()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2 px-3.5 rounded-xl transition flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-plus"></i> Buat Event Baru
+        </button>
+      </div>
+
+      <div id="eventsContainer" class="grid grid-cols-1 gap-6">
+        <!-- Rendered via JS -->
+        <div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+          <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-indigo-600"></i>
+          <p>Memuat data event...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Orders & Issued Tickets -->
+    <section id="tab-orders" class="space-y-6 hidden">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Riwayat Pesanan & E-Ticket</h2>
+          <p class="text-xs text-slate-500">Melihat status pembayaran, countdown kedaluwarsa, dan tiket dengan kode unik</p>
+        </div>
+        <div class="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200">
+          Identitas: <span id="currentUserIdSpan" class="font-bold text-indigo-600">budi</span>
+        </div>
+      </div>
+
+      <div id="ordersContainer" class="space-y-4">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- TAB 3: Load Test Simulator -->
+    <section id="tab-loadtest" class="space-y-6 hidden">
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-3 h-3 bg-indigo-600 rounded-full animate-ping"></span>
+              Simulasi Uji 200 Pesanan Bersamaan (Konkurensi Tinggi)
+            </h3>
+            <p class="text-xs text-slate-500 mt-1">
+              Menguji ketahanan sistem: 200 pengguna berbeda memesan secara paralel di milidetik yang sama untuk kuota 100 tiket.
+            </p>
+          </div>
+          <button id="btnRunLoadtest" onclick="runLoadTest()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2.5 px-4 rounded-xl shadow-md transition flex items-center gap-2">
+            <i class="fa-solid fa-play"></i> Jalankan Simulasi 200 Request
+          </button>
+        </div>
+
+        <div id="loadtestConsole" class="bg-slate-950 text-emerald-400 p-4 rounded-xl font-mono text-xs overflow-x-auto min-h-[160px] max-h-[300px]">
+          <div class="text-slate-500">// Klik "Jalankan Simulasi 200 Request" untuk memulai tes...</div>
+          <div class="text-slate-500">// Tes ini memverifikasi bahwa tidak terjadi oversell (tepat 100 sukses, 100 ditolak).</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal Buat Event -->
+  <div id="createEventModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+      <div class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center">
+        <h3 class="font-bold text-sm">Buat Event Baru</h3>
+        <button onclick="closeModal('createEventModal')" class="text-indigo-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form onsubmit="submitCreateEvent(event)" class="p-6 space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Nama Event</label>
+          <input type="text" id="evName" required placeholder="Contoh: Konser Rock 2026" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <div class="font-bold text-slate-800 mb-2">Tipe Reguler</div>
+            <label class="block text-slate-600 mb-1">Harga (Rp)</label>
+            <input type="number" id="evRegPrice" value="100000" min="0" class="w-full border border-slate-300 rounded-lg p-2 mb-2">
+            <label class="block text-slate-600 mb-1">Kuota</label>
+            <input type="number" id="evRegQuota" value="100" min="1" class="w-full border border-slate-300 rounded-lg p-2">
+          </div>
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <div class="font-bold text-slate-800 mb-2">Tipe VIP</div>
+            <label class="block text-slate-600 mb-1">Harga (Rp)</label>
+            <input type="number" id="evVipPrice" value="300000" min="0" class="w-full border border-slate-300 rounded-lg p-2 mb-2">
+            <label class="block text-slate-600 mb-1">Kuota</label>
+            <input type="number" id="evVipQuota" value="20" min="1" class="w-full border border-slate-300 rounded-lg p-2">
+          </div>
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('createEventModal')" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm">Simpan Event</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Pesan Tiket -->
+  <div id="orderModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+      <div class="bg-indigo-900 text-white px-5 py-4 flex justify-between items-center">
+        <div>
+          <h3 class="font-bold text-sm">Pesan Tiket</h3>
+          <p id="modalTicketTypeName" class="text-xs text-indigo-200">Reguler</p>
+        </div>
+        <button onclick="closeModal('orderModal')" class="text-indigo-300 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form onsubmit="submitOrder(event)" class="p-5 space-y-4 text-xs">
+        <input type="hidden" id="orderTicketTypeId">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Pembeli (X-User-Id)</label>
+          <input type="text" id="orderUserIdInput" readonly class="w-full bg-slate-100 border border-slate-300 rounded-lg p-2.5 font-bold text-slate-700 outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Jumlah Tiket (1-4 tiket)</label>
+          <select id="orderQuantity" class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 font-semibold">
+            <option value="1">1 Tiket</option>
+            <option value="2">2 Tiket</option>
+            <option value="3">3 Tiket</option>
+            <option value="4">4 Tiket (Maksimal)</option>
+          </select>
+          <p class="text-[11px] text-slate-500 mt-1">Kuota ditahan selama 15 menit sampai pembayaran selesai.</p>
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('orderModal')" class="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">Batal</button>
+          <button type="submit" id="btnSubmitOrder" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm">Konfirmasi Pesan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentUserId = "budi";
+    let cachedEvents = [];
+    let cachedOrders = [];
+    let timerInterval = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      refreshData();
+      timerInterval = setInterval(updateCountdowns, 1000);
+    });
+
+    function changeUser() {
+      const sel = document.getElementById("userSelect");
+      if (sel.value === "custom") {
+        const custom = prompt("Masukkan User ID baru:", "user-baru");
+        if (custom && custom.trim()) {
+          const opt = document.createElement("option");
+          opt.value = custom.trim();
+          opt.textContent = custom.trim();
+          sel.insertBefore(opt, sel.lastElementChild);
+          sel.value = custom.trim();
+          currentUserId = custom.trim();
+        } else {
+          sel.value = currentUserId;
+        }
+      } else {
+        currentUserId = sel.value;
+      }
+      document.getElementById("currentUserIdSpan").textContent = currentUserId;
+      loadOrders();
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-btn").forEach(b => {
+        b.classList.remove("border-indigo-600", "text-indigo-600", "font-semibold");
+        b.classList.add("border-transparent", "text-slate-500");
+      });
+      const activeBtn = document.getElementById(`btn-${tabId}`);
+      if (activeBtn) {
+        activeBtn.classList.remove("border-transparent", "text-slate-500");
+        activeBtn.classList.add("border-indigo-600", "text-indigo-600", "font-semibold");
+      }
+      document.querySelectorAll("main > section").forEach(s => s.classList.add("hidden"));
+      document.getElementById(tabId).classList.remove("hidden");
+    }
+
+    async function refreshData() {
+      await loadEvents();
+      await loadOrders();
+    }
+
+    async function loadEvents() {
+      try {
+        const res = await fetch("/events");
+        cachedEvents = await res.json();
+        renderEvents();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch("/orders", {
+          headers: { "X-User-Id": currentUserId }
+        });
+        cachedOrders = await res.json();
+        renderOrders();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderEvents() {
+      const container = document.getElementById("eventsContainer");
+      if (!cachedEvents || cachedEvents.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center bg-white rounded-2xl border border-slate-200">
+            <p class="text-slate-500 mb-3">Belum ada event yang aktif.</p>
+            <button onclick="createDefaultEvent()" class="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl">Buat Event Sampel (100 Reguler, 20 VIP)</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = cachedEvents.map(ev => `
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4 mb-4">
+            <div>
+              <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">Event</span>
+              <h3 class="text-base font-bold text-slate-900 mt-1">${escapeHtml(ev.name)}</h3>
+            </div>
+            <div class="text-xs text-slate-400">ID: <span class="font-mono">${ev.id.substring(0, 8)}...</span></div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${ev.ticket_types.map(tt => {
+              const pct = Math.max(0, Math.min(100, Math.round((tt.remaining / tt.quota) * 100)));
+              const isSoldOut = tt.remaining <= 0;
+              return `
+                <div class="p-4 rounded-xl border ${isSoldOut ? 'bg-slate-50 border-slate-200 opacity-75' : 'bg-slate-50/50 border-slate-200 hover:border-indigo-300'} transition flex flex-col justify-between">
+                  <div>
+                    <div class="flex justify-between items-start mb-2">
+                      <div>
+                        <span class="text-xs font-bold text-slate-800">${escapeHtml(tt.name)}</span>
+                        <div class="text-base font-extrabold text-indigo-900 mt-0.5">Rp ${tt.price.toLocaleString("id-ID")}</div>
+                      </div>
+                      <span class="text-xs font-bold px-2.5 py-1 rounded-full ${isSoldOut ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
+                        ${isSoldOut ? 'Habis' : `Sisa ${tt.remaining}`}
+                      </span>
+                    </div>
+
+                    <!-- Progress bar -->
+                    <div class="w-full bg-slate-200 rounded-full h-1.5 my-3">
+                      <div class="h-1.5 rounded-full ${pct < 20 ? 'bg-rose-500' : 'bg-indigo-600'}" style="width: ${pct}%"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-400 mb-3">
+                      <span>Kapasitas: ${tt.quota}</span>
+                      <span>${pct}% tersedia</span>
+                    </div>
+                  </div>
+
+                  <button onclick="openOrderModal('${tt.id}', '${escapeHtml(tt.name)}')" ${isSoldOut ? 'disabled' : ''}
+                    class="w-full py-2 px-3 rounded-lg text-xs font-semibold transition ${isSoldOut ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'}">
+                    ${isSoldOut ? 'Tiket Habis' : 'Pesan Tiket Ini'}
+                  </button>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderOrders() {
+      const container = document.getElementById("ordersContainer");
+      const badge = document.getElementById("orderCountBadge");
+      
+      if (!cachedOrders || cachedOrders.length === 0) {
+        badge.classList.add("hidden");
+        container.innerHTML = `
+          <div class="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500">
+            <i class="fa-solid fa-receipt text-3xl mb-2 text-slate-300"></i>
+            <p>Belum ada pesanan untuk pembeli <b>${escapeHtml(currentUserId)}</b>.</p>
+          </div>
+        `;
+        return;
+      }
+
+      badge.textContent = cachedOrders.length;
+      badge.classList.remove("hidden");
+
+      container.innerHTML = cachedOrders.map(o => {
+        const isPending = o.status === "PENDING";
+        const isPaid = o.status === "PAID";
+        const isExpired = o.status === "EXPIRED";
+        const isCancelled = o.status === "CANCELLED";
+
+        let statusBadge = "";
+        if (isPending) statusBadge = `<span class="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800 flex items-center gap-1.5"><i class="fa-solid fa-clock"></i> Menunggu Bayar</span>`;
+        if (isPaid) statusBadge = `<span class="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> Lunas</span>`;
+        if (isExpired) statusBadge = `<span class="px-2.5 py-1 text-xs font-bold rounded-full bg-slate-200 text-slate-700 flex items-center gap-1.5"><i class="fa-solid fa-ban"></i> Kedaluwarsa</span>`;
+        if (isCancelled) statusBadge = `<span class="px-2.5 py-1 text-xs font-bold rounded-full bg-rose-100 text-rose-800 flex items-center gap-1.5"><i class="fa-solid fa-xmark"></i> Dibatalkan</span>`;
+
+        return `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div class="flex items-center gap-3">
+                ${statusBadge}
+                <span class="text-xs text-slate-400 font-mono">ID: ${o.id.substring(0, 8)}...</span>
+              </div>
+              <div class="text-xs text-slate-500">
+                ${new Date(o.created_at).toLocaleTimeString("id-ID")}
+              </div>
+            </div>
+
+            <div class="flex flex-wrap justify-between items-center gap-4">
+              <div>
+                <h4 class="font-bold text-slate-800 text-sm">${escapeHtml(o.ticket_type_name)}</h4>
+                <div class="text-xs text-slate-500 mt-0.5">Jumlah: <span class="font-bold text-slate-700">${o.quantity} tiket</span> • Total: <span class="font-bold text-indigo-700">Rp ${o.total_price.toLocaleString("id-ID")}</span></div>
+              </div>
+
+              ${isPending ? `
+                <div class="flex items-center gap-2">
+                  <div class="text-right mr-2">
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Sisa Waktu Kuota</div>
+                    <div class="font-mono text-xs font-bold text-rose-600 countdown-timer" data-expires="${o.expires_at}">--:--</div>
+                  </div>
+                  <button onclick="payOrderDirect('${o.id}')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition">
+                    <i class="fa-solid fa-money-bill-wave mr-1"></i> Bayar Lunas
+                  </button>
+                  <button onclick="cancelOrderDirect('${o.id}')" class="px-3 py-2 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition">
+                    Batalkan
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Tiket yang diterbitkan -->
+            ${isPaid && o.tickets && o.tickets.length > 0 ? `
+              <div class="bg-indigo-50/70 border border-indigo-100 rounded-xl p-4 mt-3">
+                <div class="text-xs font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                  <i class="fa-solid fa-qrcode"></i> Tiket Resmi Diterbitkan (${o.tickets.length} Tiket)
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                  ${o.tickets.map(t => `
+                    <div class="bg-white border border-indigo-200 rounded-lg p-2.5 shadow-xs text-center">
+                      <div class="text-[10px] text-indigo-500 font-semibold uppercase">Tiket #${t.seq}</div>
+                      <div class="font-mono font-bold text-xs text-slate-900 my-1">${t.code}</div>
+                      <span class="inline-block text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">VALID</span>
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join("");
+      updateCountdowns();
+    }
+
+    function updateCountdowns() {
+      const timers = document.querySelectorAll(".countdown-timer");
+      const now = Date.now();
+      timers.forEach(t => {
+        const exp = new Date(t.dataset.expires).getTime();
+        const diff = exp - now;
+        if (diff <= 0) {
+          t.textContent = "WAKTU HABIS";
+          t.classList.add("text-slate-400");
+          t.classList.remove("text-rose-600");
+        } else {
+          const m = Math.floor(diff / 60000);
+          const s = Math.floor((diff % 60000) / 1000);
+          t.textContent = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+        }
+      });
+    }
+
+    function openOrderModal(ticketTypeId, name) {
+      document.getElementById("orderTicketTypeId").value = ticketTypeId;
+      document.getElementById("modalTicketTypeName").textContent = name;
+      document.getElementById("orderUserIdInput").value = currentUserId;
+      document.getElementById("orderModal").classList.remove("hidden");
+    }
+
+    function showCreateEventModal() {
+      document.getElementById("createEventModal").classList.remove("hidden");
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add("hidden");
+    }
+
+    async function submitCreateEvent(e) {
+      e.preventDefault();
+      const body = {
+        name: document.getElementById("evName").value.trim(),
+        ticket_types: [
+          { name: "Reguler", price: Number(document.getElementById("evRegPrice").value), quota: Number(document.getElementById("evRegQuota").value) },
+          { name: "VIP", price: Number(document.getElementById("evVipPrice").value), quota: Number(document.getElementById("evVipQuota").value) }
+        ]
+      };
+      try {
+        const res = await fetch("/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.error?.message || "Gagal membuat event");
+          return;
+        }
+        closeModal("createEventModal");
+        refreshData();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function createDefaultEvent() {
+      await fetch("/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Konser Musik Indie 2026",
+          ticket_types: [
+            { name: "Reguler", price: 100000, quota: 100 },
+            { name: "VIP", price: 300000, quota: 20 }
+          ]
+        })
+      });
+      refreshData();
+    }
+
+    async function submitOrder(e) {
+      e.preventDefault();
+      const typeId = document.getElementById("orderTicketTypeId").value;
+      const qty = Number(document.getElementById("orderQuantity").value);
+      const btn = document.getElementById("btnSubmitOrder");
+      btn.disabled = true;
+      btn.textContent = "Memproses...";
+
+      try {
+        const res = await fetch("/orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Id": currentUserId
+          },
+          body: JSON.stringify({ ticket_type_id: typeId, quantity: qty })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(`Gagal: ${data.error?.message || "Terjadi kesalahan"}`);
+        } else {
+          closeModal("orderModal");
+          await refreshData();
+          switchTab("tab-orders");
+        }
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Konfirmasi Pesan";
+      }
+    }
+
+    async function payOrderDirect(orderId) {
+      if (!confirm("Tandai pesanan ini lunas sekarang?")) return;
+      try {
+        const res = await fetch(`/orders/${orderId}/pay`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(`Gagal bayar: ${data.error?.message || "Error"}`);
+        } else {
+          refreshData();
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function cancelOrderDirect(orderId) {
+      if (!confirm("Batalkan pesanan ini? Kuota akan langsung kembali.")) return;
+      try {
+        const res = await fetch(`/orders/${orderId}/cancel`, {
+          method: "POST",
+          headers: { "X-User-Id": currentUserId }
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(`Gagal batal: ${data.error?.message || "Error"}`);
+        } else {
+          refreshData();
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function runLoadTest() {
+      const consoleBox = document.getElementById("loadtestConsole");
+      const btn = document.getElementById("btnRunLoadtest");
+      btn.disabled = true;
+      consoleBox.innerHTML = `<div>[${new Date().toLocaleTimeString()}] Menyiapkan event baru dengan kuota 100 tiket...</div>`;
+
+      try {
+        // 1. Buat event khusus load test
+        const evRes = await fetch("/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: `Stress Test ${new Date().toISOString()}`,
+            ticket_types: [
+              { name: "Reguler", price: 50000, quota: 100 },
+              { name: "VIP", price: 150000, quota: 10 }
+            ]
+          })
+        });
+        const ev = await evRes.json();
+        const typeId = ev.ticket_types.find(t => t.name === "Reguler").id;
+
+        consoleBox.innerHTML += `<div>[${new Date().toLocaleTimeString()}] Mengirim 200 pesanan secara paralel ke endpoint /orders...</div>`;
+
+        const startTime = Date.now();
+        const promises = Array.from({ length: 200 }, (_, i) => 
+          fetch("/orders", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-User-Id": `loadtest-user-${i}`
+            },
+            body: JSON.stringify({ ticket_type_id: typeId, quantity: 1 })
+          }).then(async r => ({ status: r.status, body: await r.json() }))
+        );
+
+        const results = await Promise.all(promises);
+        const duration = Date.now() - startTime;
+
+        const success = results.filter(r => r.status === 201).length;
+        const soldOut = results.filter(r => r.status === 409 && r.body.error?.code === "SOLD_OUT").length;
+        const others = 200 - success - soldOut;
+
+        const checkEv = await (await fetch(`/events/${ev.id}`)).json();
+        const remaining = checkEv.ticket_types.find(t => t.name === "Reguler").remaining;
+
+        consoleBox.innerHTML += `<div class="text-white mt-2">--------------------------------------------------</div>`;
+        consoleBox.innerHTML += `<div>Selesai dalam ${duration} ms</div>`;
+        consoleBox.innerHTML += `<div>  ✓ Berhasil (201)    : <span class="text-emerald-400 font-bold">${success}</span></div>`;
+        consoleBox.innerHTML += `<div>  ✗ Kuota Habis (409) : <span class="text-amber-400 font-bold">${soldOut}</span></div>`;
+        consoleBox.innerHTML += `<div>  ? Lainnya           : ${others}</div>`;
+        consoleBox.innerHTML += `<div>  Sisa kuota di API   : <span class="text-cyan-400 font-bold">${remaining}</span></div>`;
+
+        if (success === 100 && soldOut === 100 && remaining === 0) {
+          consoleBox.innerHTML += `<div class="text-emerald-400 font-bold text-sm mt-2">🎉 LULUS: Tepat 100 terjual, 100 ditolak. TIDAK ADA OVERSELL!</div>`;
+        } else {
+          consoleBox.innerHTML += `<div class="text-rose-400 font-bold text-sm mt-2">❌ GAGAL: Terjadi inkonsistensi kuota!</div>`;
+        }
+        await loadEvents();
+      } catch (e) {
+        consoleBox.innerHTML += `<div class="text-rose-400">Error: ${e.message}</div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+  </script>
+</body>
+</html>
