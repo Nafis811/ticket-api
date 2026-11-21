@@ -39,25 +39,36 @@ Stop: `docker compose down` · hapus data juga: `docker compose down -v`
 
 ### Tampilan dashboard
 
-![Event & pemesanan](docs/01-events.png)
+Dashboard bergaya box office resmi: tab **Tiket Konser** (kategori tiket, harga, sisa kuota per tipe),
+tab **Pesanan Saya** (status pesanan, hitung mundur waktu bayar, e-ticket berkode), dan tab **Dev Lab**
+(uji 200 pesanan bersamaan).
 
-![Pesanan & e-ticket](docs/02-orders.png)
+![Dashboard — kategori tiket & sisa kuota](docs/01-events.png)
+
+![Pesanan saya — waktu bayar & e-ticket terbit](docs/02-orders.png)
 
 ---
 
 ## 2. Alur demo (5 menit)
 
-Dashboard di `http://localhost:3300` sudah memuat semua langkah ini secara visual
-(tab **Event & Pemesanan**, **Pesanan Saya**, **Uji 200 Rebutan**).
+Dashboard di `http://localhost:3300` memuat semua langkah ini secara visual
+(tab **Tiket Konser**, **Pesanan Saya**, **Dev Lab**).
 
-1. **Buat event** — tombol *+ Buat Event*, atau kalau kosong pakai *Buat Event Sampel* (100 Reguler / 20 VIP).
-2. **Lihat sisa kuota** — tiap tipe tiket menampilkan kuota, harga, dan sisa.
-3. **Pesan tiket** — pilih tipe + jumlah 1–4. Pesanan langsung `PENDING` dan kuota **langsung turun**.
-4. **Batas 4 tiket** — coba pesan lagi dengan pembeli yang sama: ditolak `LIMIT_EXCEEDED`.
-5. **Bayar** — tombol *Bayar Lunas*: tiket terbit dengan kode unik (`TKT-…`).
+1. **Buat event** — tombol *+ Tambah Event Baru* → modal *Buat Event Konser Baru*. Wajib tepat dua tipe
+   (Reguler & VIP), masing-masing dengan harga dan kuota sendiri.
+2. **Lihat sisa kuota** — tiap kartu kategori menampilkan harga, badge *Tersisa N* / *Habis*,
+   dan alokasi `N dari M tiket`.
+3. **Pesan tiket** — tombol *Pesan Tiket* → modal *Pemesanan Tiket Konser*: pilih identitas pembeli
+   (`budi` / `siti` / `andi`, atau *+ New ID…*) dan jumlah 1–4 → *Konfirmasi Pesanan*.
+   Pesanan langsung `PENDING` dan kuota **langsung turun**.
+4. **Batas 4 tiket** — pesan lagi dengan identitas pembeli yang sama: ditolak `LIMIT_EXCEEDED`.
+5. **Bayar** — tab *Pesanan Saya* → tombol *Bayar & Terbitkan Tiket*: status jadi *Lunas* dan
+   e-ticket terbit dengan kode unik (`TKT-…`).
 6. **Bayar dua kali** — tiket tetap sama, tidak ada tiket baru.
-7. **Batalkan / kedaluwarsa** — kuota kembali seketika.
-8. **Uji 200 rebutan** — tab ketiga: 200 pesanan bersamaan → tepat 100 terjual.
+7. **Batalkan / kedaluwarsa** — tombol *Batalkan*: kuota kembali seketika. Kalau dibiarkan,
+   hitung mundur *Sisa Waktu Bayar* habis dan pesanan kedaluwarsa sendiri.
+8. **Uji 200 rebutan** — tab *Dev Lab* → *Jalankan Uji 200 Concurrency*:
+   100 berhasil, 100 ditolak, sisa kuota 0.
 
 Versi curl-nya:
 
@@ -220,7 +231,7 @@ Selesai dalam 909 ms
 LULUS: tepat 100 terjual, tidak ada oversell.
 ```
 
-![Uji 200 pesanan bersamaan](docs/03-loadtest.png)
+![Uji 200 pesanan bersamaan — output tab Dev Lab](docs/03-loadtest.png)
 
 Kenapa `loadtest:docker`: di Windows/macOS, port-forward Docker Desktop membatasi lonjakan
 koneksi dari host — sebagian socket bisa ter-reset (`ECONNRESET`) dan angka "lainnya" naik
