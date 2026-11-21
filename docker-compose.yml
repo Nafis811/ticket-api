@@ -42,6 +42,23 @@ services:
       - app-net
     restart: unless-stopped
 
+  # Uji 200 pesanan bersamaan dari DALAM network Docker.
+  #   docker compose --profile tools run --rm loadtest
+  # Tidak lewat port-forward host, jadi tidak kena batas koneksi Docker Desktop
+  # (di Windows/macOS lonjakan 200 socket dari host bisa ter-reset).
+  loadtest:
+    profiles: ["tools"]
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.loadtest
+    environment:
+      BASE_URL: http://api:3000
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - app-net
+
 networks:
   app-net:
     driver: bridge

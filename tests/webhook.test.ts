@@ -65,4 +65,10 @@ describe("webhook pembayaran", () => {
     const n = await pool.query("SELECT count(*)::int AS n FROM payment_events");
     expect(n.rows[0].n).toBe(0);
   });
+
+  it("order_id bukan UUID -> 400, bukan 500", async () => {
+    const r = await signedWebhook({ event_id: "evt-bad", order_id: "bukan-uuid", status: "paid" });
+    expect(r.status).toBe(400);
+    expect(r.body.error.code).toBe("VALIDATION");
+  });
 });

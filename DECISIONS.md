@@ -68,3 +68,19 @@ Proyek ini merefleksikan seluruh kompetensi yang diajarkan sepanjang silabus:
 ## 7. Keterbatasan & Rencana Peningkatan (Trade-offs & Scalability)
 * **Pengembalian Dana**: Transaksi `LATE_PAYMENT_REFUND_NEEDED` saat ini dicatat pada tabel audit; pada sistem produksi skala enterprise, status ini dapat memicu webhook otomatis ke payment gateway refund API.
 * **Skalabilitas Jutaan Request**: Pada skala jutaan transaksi per detik, lock database dapat digantikan dengan arsitektur *Virtual Waiting Room* dan antrean terdistribusi (Message Queue seperti Kafka / RabbitMQ) untuk meratakan lonjakan traffic (*traffic spike levelling*).
+
+---
+
+## 8. Reverse Proxy: Kenapa Nginx Diberi Connection Pool
+* **Pilihan**: `upstream` dengan `keepalive 64`, `listen 80 backlog=2048`, `worker_connections 4096`, dan header `Connection ""`.
+* **Alasan**: Tanpa keepalive, 200 permintaan serentak berarti nginx membuka 200 koneksi baru ke Node dalam satu gelombang. Dengan pool 64, koneksi dipakai ulang; socket TIME_WAIT dan biaya handshake turun drastis.
+* **Trade-off**: Keepalive menahan sampai 64 file descriptor dalam keadaan idle, dan bila backend restart, sebagian koneksi lama harus gagal lalu di-retry. Untuk beban satu event, ini murah.
+* **Batas yang Tidak Bisa Disembunyikan oleh Nginx**: `listen backlog` hanya menampung koneksi yang sudah sampai di kernel container. Port-forward Docker Desktop di Windows/macOS masih bisa memutus lonjakan socket dari host sebelum nginx melihatnya (`ECONNRESET`). Karena itu uji 200 pesanan disediakan dua jalur: dari host (`npm run loadtest`) dan dari dalam network Docker (`npm run loadtest:docker`). Jalur kedua tidak melewati port-forward sama sekali. Ini murni keterbatasan lingkungan demo, bukan jalur kode aplikasi — buktinya, jalur yang sama menghasilkan tepat 100 terjual di kedua mode ketika koneksi host tidak diputus.
+
+---
+
+## 9. Yang Sengaja Tidak Dikerjakan
+* **Tidak ada cron/worker penentu kuota.** Worker kedaluwarsa hanya merapikan kolom `status`. Kalau worker mati, kuota tetap benar karena semua perhitungan memakai `expires_at > clock_timestamp()`.
+* **Tidak ada Redis / distributed lock.** Menambah satu sumber kebenaran kedua di samping PostgreSQL justru membuka *dual-write problem*; row lock PostgreSQL sudah cukup untuk skala satu event.
+* **Tidak ada tabel `ticket_types.sold`.** Menyimpan counter berarti harus ingat mengembalikannya saat batal/kedaluwarsa. Sistem ini menghitung dari tabel `orders` agar hanya ada satu sumber kebenaran.
+* **Auth sengaja sederhana** (`X-User-Id`) karena tidak dinilai; yang penting identitas konsisten dipakai untuk batas 4 tiket dan riwayat pesanan.

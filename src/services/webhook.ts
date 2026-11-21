@@ -23,6 +23,14 @@ export async function handlePaymentWebhook(body: any) {
   if (typeof eventId !== "string" || typeof orderId !== "string" || !["paid", "failed"].includes(status)) {
     throw new AppError(400, "VALIDATION", "butuh event_id, order_id, dan status ('paid' | 'failed')");
   }
+  // Tolak lebih awal: kalau tidak, string non-UUID akan gagal di kolom UUID
+  // dan berakhir sebagai 500, bukan 400.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+    throw new AppError(400, "VALIDATION", "order_id bukan UUID yang valid");
+  }
+  if (eventId.length > 200) {
+    throw new AppError(400, "VALIDATION", "event_id terlalu panjang");
+  }
 
   return withTx(async (c) => {
     const claim = await c.query(

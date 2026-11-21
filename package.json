@@ -9,7 +9,9 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "loadtest": "tsx scripts/load-test.ts",
+    "loadtest": "node scripts/load-test.mjs",
+    "loadtest:docker": "docker compose --profile tools run --rm loadtest",
+    "webhook": "node scripts/webhook-demo.mjs",
     "pay": "tsx scripts/pay.ts"
   },
   "dependencies": {
