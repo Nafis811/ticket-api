@@ -722,11 +722,20 @@
       consoleBox.innerHTML = `<div>[${new Date().toLocaleTimeString()}] Menyiapkan event stress-test (Kuota: 100 Tiket)...</div>`;
 
       try {
+        // Nama event dibuat berurutan: Event 01, Event 02, dst.
+        const existing = await (await fetch("/events")).json();
+        const usedNumbers = existing
+          .map(e => /^Event (\d+)$/.exec(e.name))
+          .filter(Boolean)
+          .map(m => Number(m[1]));
+        const nextNumber = usedNumbers.length ? Math.max(...usedNumbers) + 1 : 1;
+        const eventName = `Event ${String(nextNumber).padStart(2, "0")}`;
+
         const evRes = await fetch("/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: `Acoustic Session Concurrency Test ${Date.now()}`,
+            name: eventName,
             ticket_types: [
               { name: "Reguler", price: 50000, quota: 100 },
               { name: "VIP", price: 150000, quota: 10 }
