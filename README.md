@@ -6,7 +6,7 @@ Dibuat menggunakan: **Node.js, TypeScript, Express, PostgreSQL, Nginx (Reverse P
 
 ---
 
-## 🚀 Menjalankan Sistem (Satu Perintah)
+## Menjalankan Sistem (Satu Perintah)
 
 Pastikan Docker Desktop aktif, lalu jalankan:
 
@@ -21,7 +21,7 @@ Setelah container berjalan:
 
 ---
 
-## 📋 Contoh Alur Transaksi via CLI (curl)
+## Contoh Alur Transaksi via CLI (curl)
 
 ```bash
 # 1. Buat event dengan dua tipe tiket (Reguler dan VIP)
@@ -49,7 +49,7 @@ curl -s http://localhost:3300/orders -H 'X-User-Id: budi'
 
 ---
 
-## 📡 Daftar Endpoint API
+## Daftar Endpoint API
 
 | Method | Endpoint | Deskripsi | Header Khusus |
 |---|---|---|---|
@@ -66,7 +66,7 @@ curl -s http://localhost:3300/orders -H 'X-User-Id: budi'
 
 ---
 
-## 💳 Cara Menandai Pesanan Lunas
+## Cara Menandai Pesanan Lunas
 
 Tersedia 3 cara untuk menandai pesanan lunas:
 
@@ -91,7 +91,7 @@ Tersedia 3 cara untuk menandai pesanan lunas:
 
 ---
 
-## 🧪 Pengujian Otomatis (Automated Tests)
+## Pengujian Otomatis (Automated Tests)
 
 Test suite mencakup seluruh kebutuhan bisnis dan skenario ekstrem:
 - Alur lengkap dari pemesanan hingga penerbitan tiket ber-kode unik
@@ -115,7 +115,7 @@ npm test
 
 ---
 
-## ⚡ Nilai Tambah (Opsional)
+## Nilai Tambah (Opsional)
 
 ### 1. Uji 200 Pesanan Bersamaan (High Concurrency Stress Test)
 Dengan server menyala di `http://localhost:3300`, jalankan:
@@ -141,7 +141,7 @@ LULUS: tepat 100 terjual, tidak ada oversell.
 
 ---
 
-## 🏗️ Pipeline CI/CD
+## Pipeline CI/CD
 
 Konfigurasi GitHub Actions ada di `.github/workflows/ci.yml`:
 1. **Trigger**: Setiap `push` ke repositori.
@@ -150,6 +150,6 @@ Konfigurasi GitHub Actions ada di `.github/workflows/ci.yml`:
 
 ---
 
-## 📖 Analisis Arsitektur & Keputusan Desain
+## Analisis Arsitektur & Keputusan Desain
 
 Rincian keputusan teknis, mekanisme locking, handling deadlock, dan pertimbangan trade-off dapat dilihat secara lengkap di [DECISIONS.md](DECISIONS.md).
