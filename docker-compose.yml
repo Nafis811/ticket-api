@@ -7,6 +7,8 @@ services:
       POSTGRES_DB: tickets
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d tickets"]
       interval: 3s
@@ -24,8 +26,25 @@ services:
       WEBHOOK_SECRET: dev-webhook-secret
       ORDER_TTL_SECONDS: "900"
       EXPIRY_INTERVAL_MS: "30000"
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      - api
     ports:
-      - "3000:3000"
+      - "3300:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - app-net
+    restart: unless-stopped
+
+networks:
+  app-net:
+    driver: bridge
 
 volumes:
   pgdata:

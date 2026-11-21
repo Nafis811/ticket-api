@@ -2,7 +2,7 @@
 
 API backend penjualan tiket event dengan penanganan konkurensi tinggi, proteksi oversell, auto-expiry 15 menit, pembatasan 4 tiket per user, webhook idempoten, dan dilengkapi Web Dashboard opsional untuk presentasi demo.
 
-Dibuat menggunakan: **Node.js, TypeScript, Express, PostgreSQL, Docker, Vitest**.
+Dibuat menggunakan: **Node.js, TypeScript, Express, PostgreSQL, Nginx (Reverse Proxy), Docker Compose, Vitest**.
 
 ---
 
@@ -15,9 +15,9 @@ docker compose up --build
 ```
 
 Setelah container berjalan:
-- **API Endpoint**: `http://localhost:3000`
-- **Health Check**: `http://localhost:3000/health`
-- **Web UI Showcase (Opsional untuk Demo)**: Buka browser di `http://localhost:3000`
+- **API Endpoint**: `http://localhost:3300`
+- **Health Check**: `http://localhost:3300/health`
+- **Web UI Showcase (Opsional untuk Demo)**: Buka browser di `http://localhost:3300`
 
 ---
 
@@ -25,7 +25,7 @@ Setelah container berjalan:
 
 ```bash
 # 1. Buat event dengan dua tipe tiket (Reguler dan VIP)
-curl -s -X POST http://localhost:3000/events -H 'Content-Type: application/json' -d '{
+curl -s -X POST http://localhost:3300/events -H 'Content-Type: application/json' -d '{
   "name": "Konser Musik Indie 2026",
   "ticket_types": [
     {"name": "Reguler", "price": 100000, "quota": 100},
@@ -34,17 +34,17 @@ curl -s -X POST http://localhost:3000/events -H 'Content-Type: application/json'
 }'
 
 # 2. Lihat event dan sisa kuota tiap tipe
-curl -s http://localhost:3000/events
+curl -s http://localhost:3300/events
 
 # 3. Pesan 2 tiket (identitas pembeli melalui header X-User-Id)
-curl -s -X POST http://localhost:3000/orders -H 'Content-Type: application/json' \
+curl -s -X POST http://localhost:3300/orders -H 'Content-Type: application/json' \
   -H 'X-User-Id: budi' -d '{"ticket_type_id": "<ID_TIPE_TIKET>", "quantity": 2}'
 
 # 4. Tandai lunas (simulasi pembayaran) -> tiket resmi terbit
-curl -s -X POST http://localhost:3000/orders/<ORDER_ID>/pay
+curl -s -X POST http://localhost:3300/orders/<ORDER_ID>/pay
 
 # 5. Lihat riwayat pesanan dan kode tiket resmi yang diterbitkan
-curl -s http://localhost:3000/orders -H 'X-User-Id: budi'
+curl -s http://localhost:3300/orders -H 'X-User-Id: budi'
 ```
 
 ---
@@ -72,7 +72,7 @@ Tersedia 3 cara untuk menandai pesanan lunas:
 
 1. **Endpoint REST API**:
    ```bash
-   curl -X POST http://localhost:3000/orders/<ORDER_ID>/pay
+   curl -X POST http://localhost:3300/orders/<ORDER_ID>/pay
    ```
 2. **Skrip CLI**:
    ```bash
@@ -118,7 +118,7 @@ npm test
 ## ⚡ Nilai Tambah (Opsional)
 
 ### 1. Uji 200 Pesanan Bersamaan (High Concurrency Stress Test)
-Dengan server menyala di `http://localhost:3000`, jalankan:
+Dengan server menyala di `http://localhost:3300`, jalankan:
 ```bash
 npm run loadtest
 ```

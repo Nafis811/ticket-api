@@ -2,7 +2,7 @@
 // Pakai: npm run pay -- <order_id>
 export {};
 
-const base = process.env.BASE_URL ?? "http://localhost:3000";
+const base = process.env.BASE_URL ?? "http://localhost:3300";
 const orderId = process.argv[2];
 
 if (!orderId) {

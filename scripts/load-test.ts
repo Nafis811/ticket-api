@@ -2,7 +2,7 @@
 // Pakai: npm run loadtest   (atau BASE_URL=http://host:3000 npm run loadtest)
 export {};
 
-const base = process.env.BASE_URL ?? "http://localhost:3000";
+const base = process.env.BASE_URL ?? "http://localhost:3300";
 const QUOTA = 100;
 const REQUESTS = 200;
 
